@@ -79,16 +79,15 @@ RUN ln -s /usr/bin/python3 /usr/bin/python
 ENV container=yugabyte-db
 ENV YB_HOME=/home/yugabyte
 WORKDIR /home/yugabyte
-ENV BOTO_PATH=/home/yugabyte/.boto/config
-ENV AZCOPY_JOB_PLAN_LOCATION=/tmp/azcopy/jobs-plan
-ENV AZCOPY_LOG_LOCATION=/tmp/azcopy/logs
-ENV TINI_VERSION="v0.19.0"
 
 RUN ./bin/post_install.sh
 
-EXPOSE 10100 11000 12000
-VOLUME /mnt/disk0 /mnt/disk1
-ENTRYPOINT "/sbin/tini" "--"
+EXPOSE 5433
+EXPOSE 9000
+
+VOLUME /mnt/data
+
+ENTRYPOINT ["/home/yugabyte/bin/yugabyted", "start", "--daemon=false", "--ui=false", "--base_dir=/mnt/data"]
 
 
 
