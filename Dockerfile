@@ -1,5 +1,8 @@
-FROM almalinux:8 AS builder
+FROM centos:8 AS builder
 
+RUN cd /etc/yum.repos.d/
+RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+RUN sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
 RUN dnf -y update
 RUN dnf install -y wget git
 RUN dnf groupinstall -y 'Development Tools'
@@ -61,33 +64,41 @@ RUN ln -s /usr/bin/cmake3 /usr/local/bin/cmake && ln -s /usr/bin/ctest3 /usr/loc
 
 RUN git clone https://github.com/yugabyte/yugabyte-db.git
 WORKDIR yugabyte-db
+RUN git checkout cd3c1a4
 
-ENV YB_COMPILER_TYPE=clang12
+RUN cd ./src/postgres/contrib; git clone https://github.com/EnterpriseDB/pldebugger.git; sed -i 's/\$(recurse)/SUBDIRS += pldebugger\n&/' Makefile
+
+ENV YB_COMPILER_TYPE=clang11
 RUN ./yb_build.sh release
 
-RUN ./yb_release
+RUN ./yb_release --force
 
-FROM almalinux:8
+FROM centos:8
 
+RUN cd /etc/yum.repos.d/
+RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+RUN sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
 RUN dnf -y update
-RUN dnf install -y wget git python38 python38-pip curl chrony libatomic procps \
+RUN dnf install -y wget git python39 python39-pip curl chrony libatomic procps \
     && dnf clean all
 
-COPY --from=builder /yugabyte-db/build/yugabyte*.gz /home
-RUN cd /home && tar xvzf yugabyte*.tar.gz --one-top-level=yugabyte --strip-components 1 && rm -f yugabyte*.tar.gz
-RUN ln -s /usr/bin/python3 /usr/bin/python
+COPY --from=builder /yugabyte-db/build/yugabyte*.gz /
+RUN cd / && tar xvzf yugabyte*.tar.gz --one-top-level=yugabyte --strip-components 1 && rm -f yugabyte*.tar.gz
+RUN alternatives --set python /usr/bin/python3
 ENV container=yugabyte-db
-ENV YB_HOME=/home/yugabyte
-WORKDIR /home/yugabyte
+ENV YB_HOME=/yugabyte
+WORKDIR /yugabyte
 
 RUN ./bin/post_install.sh
 
 EXPOSE 5433
-EXPOSE 9000
+EXPOSE 7000
 
 VOLUME /mnt/data
 
-ENTRYPOINT ["/home/yugabyte/bin/yugabyted", "start", "--daemon=false", "--ui=false", "--base_dir=/mnt/data"]
+CMD ["/bin/bash", "-c", "/yugabyte/bin/yugabyted start --daemon=false --ui=false --base_dir=/mnt/data --tserver_flags=ysql_pg_conf=\"shared_preload_libraries='pg/yugabyte/postgres/lib/plugin_debugger.so'\""]
+
+#CMD exec /bin/bash -c "trap : TERM INT; sleep infinity & wait"
 
 
 
