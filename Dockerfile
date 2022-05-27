@@ -96,9 +96,7 @@ EXPOSE 7000
 
 VOLUME /mnt/data
 
-CMD ["/bin/bash", "-c", "/yugabyte/bin/yugabyted start --daemon=false --ui=false --base_dir=/mnt/data --tserver_flags=ysql_pg_conf=\"shared_preload_libraries='pg/yugabyte/postgres/lib/plugin_debugger.so'\""]
-
-#CMD exec /bin/bash -c "trap : TERM INT; sleep infinity & wait"
+CMD ["/bin/bash", "-c", "/yugabyte/bin/yugabyted start --daemon=false --ui=false --base_dir=/mnt/data --initial_scripts_dir=/init-scripts --tserver_flags=ysql_pg_conf=\"shared_preload_libraries='/yugabyte/postgres/lib/plugin_debugger.so'\""]
 
 
 
